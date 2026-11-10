@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#0d1b2a"><link rel="icon" href="data:,"><title>St. Charles Retreat · Interactive Study</title>
+<style>
+:root{--navy:#0d1b2a;--gold:#c9a45c;--cream:#f4f0e7}*{box-sizing:border-box}body{margin:0;background:var(--navy);color:var(--cream);font-family:Arial,Helvetica,sans-serif}#scene{position:fixed;inset:0}canvas{display:block;touch-action:none}header{position:fixed;left:30px;right:30px;top:24px;display:flex;justify-content:space-between;align-items:flex-start;pointer-events:none;z-index:2}header>div{background:rgba(13,27,42,.93);border:1px solid #ffffff18;border-radius:3px;padding:20px 24px;box-shadow:0 12px 40px #0d1b2a18}.eyebrow{font-size:10px;letter-spacing:2.7px;color:var(--gold);text-transform:uppercase}h1{font:normal 32px Georgia,serif;margin:8px 0 6px;letter-spacing:-.5px}header p{margin:0;font-size:12px;color:#c8d0d7}.status{text-align:right;font-size:10px;line-height:1.8;letter-spacing:1.8px}.status span{color:var(--gold)}.controls{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);width:min(710px,calc(100% - 32px));z-index:3;background:rgba(13,27,42,.96);border:1px solid #c9a45c50;padding:14px 16px 12px;border-radius:12px;box-shadow:0 8px 36px #0d1b2a35}.buttons{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}button{border:1px solid #405064;background:#192c40;color:var(--cream);font:600 12px Arial,sans-serif;padding:12px 17px;border-radius:6px;cursor:pointer;min-height:44px}button:hover{border-color:var(--gold)}button:focus-visible{outline:2px solid #e9c77d;outline-offset:3px}button[aria-pressed=true],#roof{background:var(--gold);color:var(--navy);border-color:var(--gold)}#roof[aria-pressed=true]{background:#f4f0e7;border-color:#f4f0e7}.hint{font-size:11px;line-height:1.6;color:#b8c4cd;text-align:center;margin:10px 0 0}.note{position:fixed;left:30px;bottom:146px;color:#334958;max-width:280px;font-size:11px;line-height:1.65;pointer-events:none}.note strong{display:block;font-size:10px;letter-spacing:1.8px;text-transform:uppercase;color:#193346}#loading{position:fixed;inset:0;display:grid;place-items:center;background:var(--navy);z-index:9;padding:30px;text-align:center}#loading p{color:var(--gold);font:20px Georgia,serif}#loading small{font:12px Arial,sans-serif;line-height:1.8;color:#c8d0d7}.hidden{display:none!important}#viewname{color:#354e60;position:fixed;right:30px;bottom:148px;font-size:10px;letter-spacing:2px;text-transform:uppercase;pointer-events:none}
+@media(max-width:640px){header{left:14px;right:14px;top:14px}header>div{padding:14px 17px}h1{font-size:25px}header p{font-size:10px}.eyebrow{font-size:8px;letter-spacing:2px}.status{display:none}.controls{bottom:max(14px,env(safe-area-inset-bottom));padding:10px 10px 8px;width:calc(100% - 24px)}button{padding:10px 12px;font-size:11px;flex:1;white-space:nowrap}.buttons{gap:5px}.hint{font-size:9px;margin-top:7px}.note{left:18px;right:18px;bottom:130px;font-size:9px;max-width:none;line-height:1.4}.note strong{font-size:8px;display:inline;margin-right:8px}#viewname{display:none}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script></head><body>
+<div id="scene" role="img" aria-label="Interactive 3D concept model of the St. Charles Retreat. Use the buttons for exterior or approximate floor plan views."></div>
+<header><div><div class="eyebrow">The French Quarter · Lake Conroe</div><h1>St. Charles Retreat</h1><p>Modern Craftsman / Elevation A</p></div><div class="status"><span>INTERACTIVE STUDY / 01</span><br>ACG DEVELOPMENT TEXAS<br>PRIVATE CONCEPT · NOT FOR CONSTRUCTION</div></header>
+<div class="note"><strong>A first look, not a blueprint</strong>Footprint based on architect's dimension table. Interior layout, roof intersections and finishes are approximate. Optional third garage bay shown. Specifications pending confirmation.</div><div id="viewname">Exterior · Front</div>
+<div class="controls"><div class="buttons"><button id="front" aria-pressed="true">Front</button><button id="rear" aria-pressed="false">Rear</button><button id="roof" aria-pressed="false">Lift roof / Floor plan</button><button id="rotate" aria-pressed="true">Pause spin</button></div><p class="hint">Drag to orbit · Scroll or pinch to zoom · Two fingers to pan · Roof-off reveals the approximate room layout</p></div>
+<div id="loading"><div><p>Preparing your first look…</p><small>Interactive architectural study<br>Loading the free 3D viewer</small></div></div>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+// SOURCE: architect-dimensions_v1.pdf, table p1 + rendered Retreat drawing p5.
+// One scene unit = ONE FOOT. This is a visual study, NOT a CAD reconstruction.
+// All layout data is centralized here. x = feet from left, z = feet from rear.
+// Brochure text contradicts the table: do not add area or bedroom/bathroom counts.
+const PLAN={
+ dimensions:{width2:51+11/12,width3:63+11/12,depth:79+9.5/12,door2:[16,8],door3:[8,8],garage2:[22,25],garage3:[12,26],patio:[26,9],roofPitch:10/12},
+ sourceRoomDimensions:{primary:[15,19],greatRoom:[15,21],dining:[11,21],kitchen:[12,16],guestRetreat:[16,24],bedroom2:[11,13],bedroom3:[11,12]},
+ // Boundary offsets digitized proportionally from p5, not dimensioned CAD.
+ boundary:[[27,0],[51.9167,0],[51.9167,48.5],[63.9167,48.5],[63.9167,75],[2,75],[2,32],[0,32],[0,9.5],[27,9.5]],
+ rooms:[
+ {name:'Covered patio',r:[1.5,0,25.5,9.5],type:'patio',label:[14,5]},
+ {name:'Primary suite',r:[27,0,15.5,19.5],type:'bed',label:[34.5,15.5]},
+ {name:'Walk-in closet',r:[42.5,0,9.4167,9.5],type:'service',label:[47.3,5]},
+ {name:'Primary bath',r:[42.5,9.5,9.4167,15.5],type:'bath',label:[47.1,21]},
+ {name:'Dining',r:[0,9.5,11.5,22.5],type:'living',label:[5.5,28]},
+ {name:'Great room',r:[11.5,9.5,15.5,22.5],type:'living',label:[19.5,28]},
+ {name:'Utility',r:[27,21.5,7.5,10.5],type:'service',label:[30.7,29.5]},
+ {name:'Hall',r:[34.5,19.5,4.5,32.5],type:'hall',label:[36.8,39]},
+ {name:'Bedroom 3',r:[39,25,12.9167,11.5],type:'bed',label:[45.5,34.3]},
+ {name:'Closets',r:[40,36.5,11.9167,2.5],type:'service',label:[46,37.8]},
+ {name:'Bedroom 2',r:[40,39,11.9167,11],type:'bed',label:[45.8,49.7]},
+ {name:'Kitchen',r:[2,32,25,12],type:'living',label:[12.5,41.5]},
+ {name:'Pantry',r:[2,44,8.5,6.5],type:'service',label:[6.2,47.2]},
+ {name:"Butler's pantry",r:[10.5,44,7.5,6.5],type:'service',label:[14.3,47]},
+ {name:'Powder',r:[27,37,7.5,6],type:'bath',label:[30.7,40.6]},
+ {name:'Mud room',r:[27,43,7.5,7],type:'service',label:[30.8,49.8]},
+ {name:'Bath 2',r:[34.5,43,5.5,7],type:'bath',label:[37.3,49.8]},
+ {name:'Guest retreat',r:[2,50.5,16.5,24.5],type:'bed',label:[10.5,64.2]},
+ {name:'Guest bath',r:[2,50.5,5.5,12],type:'bath',label:[4.7,60.8]},
+ {name:'Foyer',r:[18.5,63,9.5,12],type:'hall',label:[23,70]},
+ {name:'Entry gallery',r:[18.5,50.5,8.5,12.5],type:'hall',label:[23,55]},
+ {name:'Garage',r:[29.4167,50,22,25],type:'garage',label:[40.5,66]},
+ {name:'Optional bay',r:[51.9167,49,12,26],type:'garage',label:[57.9,66]},
+ {name:'Porch',r:[18.5,75,9.5,4.7917],type:'patio',label:[23,77.5]}
+ ],
+ // Interior partition segments [x1,z1,x2,z2]; gaps intentionally form doorways.
+ walls:[
+ [27,0,27,9.5],[27,9.5,27,18],[27,21,27,32],
+ [42.5,0,42.5,8],[42.5,10.5,42.5,18],[42.5,21,42.5,25],
+ [42.5,9.5,47,9.5],[49.5,9.5,51.9167,9.5],
+ [27,19.5,34.5,19.5],[38,19.5,42.5,19.5],
+ [27,21.5,34.5,21.5],[34.5,21.5,34.5,25],[34.5,28,34.5,32],[27,32,34.5,32],
+ [39,25,51.9167,25],[39,25,39,33],[39,35.5,39,36.5],
+ [39,36.5,51.9167,36.5],[40,36.5,40,39],[40,39,51.9167,39],
+ [40,39,40,41],[40,44,40,50],[40,50,51.9167,50],
+ [27,37,34.5,37],[27,37,27,38.5],[27,41,27,43],[27,43,34.5,43],
+ [34.5,37,34.5,43],[34.5,43,34.5,45],[34.5,47.5,34.5,50],
+ [27,43,27,49],[27,49,27,50],[27,50,34.5,50],[34.5,50,40,50],
+ [2,44,10.5,44],[10.5,44,10.5,46],[10.5,48.5,10.5,50.5],
+ [2,50.5,18.5,50.5],[18.5,44,18.5,50.5],
+ [7.5,50.5,7.5,59],[7.5,61.5,7.5,62.5],[2,62.5,7.5,62.5],
+ [18.5,50.5,18.5,59],[18.5,62,18.5,75],
+ [28,50,28,63],[28,66,28,75]
+ ],
+ // Exterior openings per boundary wall, in x or z feet. side: horizontal='x'.
+ openings:[
+ {a:[27,0],b:[51.9167,0],holes:[[29,35,2,8],[37,40,2,8]]},
+ {a:[51.9167,0],b:[51.9167,48.5],holes:[[12,16,3,8],[28,32,2.5,8],[42,46,2.5,8]]},
+ {a:[51.9167,48.5],b:[63.9167,48.5],holes:[[57,60,0,8,'door']]},
+ {a:[63.9167,48.5],b:[63.9167,75],holes:[[54,58,3,8]]},
+ {a:[2,75],b:[63.9167,75],holes:[[8,12,0.8,9],[21,25,0,9,'entry'],[30.5,46.5,0,8,'garage'],[54,62,0,8,'garage']]},
+ {a:[2,32],b:[2,75],holes:[[34,38,4,8],[54,57,4,8],[66,70,2,8]]},
+ {a:[0,32],b:[2,32],holes:[]},
+ {a:[0,9.5],b:[0,32],holes:[[12,16,2,8],[21,25,2,8],[28,30.5,2,8]]},
+ {a:[0,9.5],b:[27,9.5],holes:[[3,8,2,8],[10,20,0,9,'slider'],[22,25,2,8]]},
+ {a:[27,0],b:[27,9.5],holes:[[3,7,2,8]]}
+ ]
+};
+window.RETREAT_PLAN=PLAN;
+const mount=document.querySelector('#scene'), load=document.querySelector('#loading');
+const scene=new THREE.Scene();scene.background=new THREE.Color('#e4e9e8');scene.fog=new THREE.Fog('#e4e9e8',220,560);
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.75));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.2;mount.appendChild(renderer.domElement);
+const camera=new THREE.PerspectiveCamera(38,innerWidth/innerHeight,0.5,800);
+const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(0,5,0);controls.enableDamping=true;controls.dampingFactor=.065;controls.minDistance=42;controls.maxDistance=430;controls.maxPolarAngle=Math.PI*.485;controls.autoRotate=!matchMedia('(prefers-reduced-motion: reduce)').matches;controls.autoRotateSpeed=.65;controls.screenSpacePanning=false;controls.addEventListener('start',()=>{camTween=null;setRotate(false)});
+scene.add(new THREE.HemisphereLight('#e9f2ff','#8a8564',2.2));const sun=new THREE.DirectionalLight('#fff1d7',3.1);sun.position.set(-65,110,75);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);Object.assign(sun.shadow.camera,{left:-105,right:105,top:105,bottom:-105,near:1,far:300});sun.shadow.normalBias=.06;sun.shadow.bias=-.00015;sun.shadow.radius=4;scene.add(sun);const fill=new THREE.DirectionalLight('#d2e3f5',.7);fill.position.set(80,45,-75);scene.add(fill);
+const base=new THREE.Group(),upper=new THREE.Group(),roof=new THREE.Group(),labels=new THREE.Group(),furn=new THREE.Group();scene.add(base,upper,roof,labels,furn);labels.visible=false;
+let seed=61;function rnd(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296}
+function tex(w,h,draw){const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());return t}
+const brickTex=tex(512,256,(c,w,h)=>{c.fillStyle='#bcb5a9';c.fillRect(0,0,w,h);for(let y=0;y<h;y+=32)for(let x=-64;x<w;x+=128){let bx=x+(y/32%2)*64;let v=177+rnd()*38;c.fillStyle=`rgb(${v+9},${v+5},${v-4})`;c.fillRect(bx+2,y+2,124,28);for(let i=0;i<100;i++){c.fillStyle=rnd()>.5?'#ffffff13':'#4b493018';c.fillRect(bx+rnd()*124,y+rnd()*28,2+rnd()*4,1+rnd()*2)}}});
+const roofTex=tex(512,512,(c,w,h)=>{c.fillStyle='#45443f';c.fillRect(0,0,w,h);for(let y=0;y<h;y+=24)for(let x=-48;x<w;x+=96){const v=49+rnd()*26;const xx=x+((y/24)%2)*48;c.fillStyle=`rgb(${v+4},${v+3},${v})`;c.fillRect(xx,y+2,93,21);c.fillStyle='#ffffff15';c.fillRect(xx,y+3,93,1);for(let i=0;i<110;i++){c.fillStyle=rnd()>.5?'#ffffff0b':'#00000020';c.fillRect(xx+rnd()*94,y+rnd()*20,2,1)}}});
+const grassTex=tex(256,256,(c,w,h)=>{c.fillStyle='#8b9a73';c.fillRect(0,0,w,h);for(let i=0;i<28000;i++){c.fillStyle=rnd()>.5?'#cbd3a12a':'#3d583225';c.fillRect(rnd()*w,rnd()*h,1,1+rnd()*3)}});grassTex.repeat.set(65,65);
+const woodTex=tex(256,256,(c,w,h)=>{c.fillStyle='#b9a58c';c.fillRect(0,0,w,h);for(let x=0;x<w;x+=32){c.fillStyle='#77634d44';c.fillRect(x,0,1,h);for(let i=0;i<30;i++){c.fillStyle='#725d4515';c.fillRect(x+rnd()*30,rnd()*h,1,rnd()*120)}}});
+const mat=(color,opts={})=>new THREE.MeshStandardMaterial({color,roughness:.88,...opts});
+const M={brick:mat('#ffffff',{map:brickTex}),siding:mat('#616662'),trim:mat('#333d3e'),roof:mat('#ffffff',{map:roofTex,side:THREE.DoubleSide}),fascia:mat('#555b57'),concrete:mat('#ccc9bf'),glass:mat('#4b6c74',{metalness:.35,roughness:.23}),door:mat('#786d5e'),garage:mat('#98978c'),inside:mat('#f0eade'),floor:mat('#ece2ce',{map:woodTex}),bath:mat('#cbd7d6'),cabinet:mat('#87745e'),white:mat('#f1eee5'),sofa:mat('#c0b9a8'),green:mat('#4b6643'),gravel:mat('#867963'),black:mat('#283538')};
+function box(x,z,w,d,h,y,material=M.inside,parent=base){const g=new THREE.BoxGeometry(w,h,d);if(material.map){const uv=g.attributes.uv;for(let i=0;i<uv.count;i++){uv.setXY(i,uv.getX(i)*(i<8?d:w)/6,uv.getY(i)*(i<16?h:d)/3)}}const m=new THREE.Mesh(g,material);m.position.set(x-32,y+h/2,z-40);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m}
+function slab(poly,y,h,material,parent=base){const s=new THREE.Shape();poly.forEach(([x,z],i)=>i?s.lineTo(x-32,-z+40):s.moveTo(x-32,-z+40));s.closePath();const g=new THREE.ExtrudeGeometry(s,{depth:h,bevelEnabled:false});g.rotateX(-Math.PI/2);const m=new THREE.Mesh(g,material);m.position.y=y;m.castShadow=true;m.receiveShadow=true;parent.add(m);return m}
+slab(PLAN.boundary,-.4,.6,M.concrete);
+box(32,40,190,210,.35,-.9,mat('#ffffff',{map:grassTex}));
+// Driveway and paths, all schematic site context (not a surveyed site plan).
+box(46.5,92,38,34,.18,-.25,M.concrete);box(23.2,82.5,9.5,15,.2,-.2,M.concrete);box(28,84,11,5,.2,-.2,M.concrete);
+const colors={living:'#e5dac7',bed:'#e2d9c8',service:'#cfc8b9',bath:'#c3d3d2',hall:'#eae0cf',garage:'#c2c4bf',patio:'#d6d4c9'};
+for(const r of PLAN.rooms){let [x,z,w,d]=r.r;box(x+w/2,z+d/2,w-.05,d-.05,.13,.2,mat(colors[r.type],r.type==='living'||r.type==='bed'?{map:woodTex}:{}));if(r.type!=='hall'||r.name==='Foyer')roomLabel(r.name,r.label[0],r.label[1],r.type==='service'?5.5:7.5)}
+function roomLabel(text,x,z,width=7.5){const t=tex(512,180,(c,w,h)=>{c.fillStyle='rgba(247,245,234,.93)';c.beginPath();c.roundRect(3,3,w-6,h-6,22);c.fill();c.strokeStyle='#bda877';c.lineWidth=5;c.stroke();c.fillStyle='#193344';c.font=`600 ${text.length>13?50:text.length>10?60:74}px Arial`;c.textAlign='center';c.textBaseline='middle';c.fillText(text,w/2,h/2)});t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping;const m=new THREE.Mesh(new THREE.PlaneGeometry(width,width*180/512),new THREE.MeshBasicMaterial({map:t,transparent:true,depthTest:false}));m.rotation.x=-Math.PI/2;m.position.set(x-32,3.45,z-40);m.renderOrder=10;labels.add(m)}
+function segment(a,b,y,h,material,parent=base,thick=.5){const x=(a[0]+b[0])/2,z=(a[1]+b[1])/2;return box(x,z,Math.abs(b[0]-a[0])||thick,Math.abs(b[1]-a[1])||thick,h,y,material,parent)}
+for(const [x1,z1,x2,z2] of PLAN.walls){segment([x1,z1],[x2,z2],.33,2.7,M.inside);segment([x1,z1],[x2,z2],3.03,7.47,M.inside,upper)}
+// Openings are actual gaps in the walls, rather than glass pasted onto a solid block.
+function wallFill(a,b,from,to,y0,y1){if(to-from<.01||y1-y0<.01)return;const horiz=a[1]===b[1],at=v=>horiz?[v,a[1]]:[a[0],v];let cuts=[y0,y1];for(const v of[3,4.4])if(v>y0&&v<y1)cuts.push(v);cuts.sort((x,y)=>x-y);for(let i=0;i<cuts.length-1;i++){const lo=cuts[i],hi=cuts[i+1];segment(at(from),at(to),lo+.33,hi-lo,lo>=4.4?M.siding:M.brick,lo>=3?upper:base,.65)}}
+for(const wall of PLAN.openings){const {a,b,holes}=wall;const horiz=a[1]===b[1],start=horiz?Math.min(a[0],b[0]):Math.min(a[1],b[1]),end=horiz?Math.max(a[0],b[0]):Math.max(a[1],b[1]);let last=start;for(const [s,e,bot,top,kind='window']of holes){wallFill(a,b,last,s,0,10.5);wallFill(a,b,s,e,0,bot);wallFill(a,b,s,e,top,10.5);opening(horiz,(s+e)/2,horiz?a[1]:a[0],e-s,bot,top,kind);last=e}wallFill(a,b,last,end,0,10.5)}
+function opening(horizontal,along,fixed,w,bot,top,kind){const z=horizontal?fixed:along,x=horizontal?along:fixed,h=top-bot,y=bot+.33;const target=upper;const put=(xx,zz,ww,dd,hh,yy,mm)=>box(xx,zz,ww,dd,hh,yy,mm,target);const line=(offset,yy,ww,hh,mm,depth=.28)=>put(x+(horizontal?offset:0),z+(horizontal?0:offset),horizontal?ww:depth,horizontal?depth:ww,hh,yy,mm);
+ if(kind==='garage'){line(0,y,w,h,M.garage,.22);for(let yy=y+1;yy<y+h;yy+=1.35)line(0,yy,w,.055,M.fascia,.26);for(let yy=y+1;yy<y+h;yy+=1.7)line(w/2-1.1,yy,1.3,1,M.glass,.3);line(-w/2,y,.2,h,M.trim);line(w/2,y,.2,h,M.trim);line(0,y+h,w+.25,.2,M.trim);return}
+ line(0,y,w,h,kind==='door'?M.door:M.glass,.16);for(const offset of[-w/2,w/2])line(offset,y,.17,h,M.trim);for(const yy of[y,y+h])line(0,yy,w+.17,.17,M.trim);
+ if(kind==='entry'){for(let yy=y+1.2;yy<y+h;yy+=1.8)line(0,yy,w,.25,M.trim);line(w*.32,y+3.7,.08,1.2,M.white,.4)}else if(kind==='slider'){line(0,y,.14,h,M.trim);line(-w/4,y,.06,h,M.trim);line(w/4,y,.06,h,M.trim)}else if(kind==='window')line(0,y+h*.36,w,.1,M.trim);
+}
+// Vertical battens on the visible upper front siding.
+for(let x=2.5;x<64;x+=1.5){if([ [8,12],[21,25],[30.5,46.5],[54,62] ].some(([s,e])=>x>s&&x<e))continue;box(x,75.36,.09,.08,5.9,4.7,M.trim,upper)}
+// Porch: pale brick portal, tall recessed dark glazed entrance; optional bay retained.
+box(23.25,77.4,10.4,5.0,.3,.05,M.concrete);for(const x of[18.55,27.95])box(x,78.8,1.1,1.15,12.5,.33,M.brick,upper);box(23.25,78.8,10.5,1.15,.8,12.0,M.brick,upper);
+for(const x of[28.3,51.8,63.6])box(x,75.5,.85,.95,10.5,.33,M.brick,upper);
+// Porch posts and a simple outdoor slab at the rear.
+box(14.25,4.75,25.5,9.5,.25,.08,M.concrete);for(const x of[2,13.5,26.3])box(x,.5,.65,.65,10.3,.33,M.trim,upper);
+// Interlocking hipped roof forms inferred from the front render. Pitch from table.
+function hip(x,z,w,d,eave=10.9,pitch=PLAN.dimensions.roofPitch){const hw=w/2,hd=d/2,h=Math.min(hw,hd)*pitch;const p=[[x-w/2,eave,z-d/2],[x+w/2,eave,z-d/2],[x+w/2,eave,z+d/2],[x-w/2,eave,z+d/2]];let r1,r2;if(d>=w){r1=[x,eave+h,z-d/2+hw];r2=[x,eave+h,z+d/2-hw]}else{r1=[x-w/2+hd,eave+h,z];r2=[x+w/2-hd,eave+h,z]}
+ const faces=d>=w?[[p[0],p[1],r1],[p[1],p[2],r2],[p[1],r2,r1],[p[2],p[3],r2],[p[3],p[0],r1],[p[3],r1,r2]]:[[p[0],p[1],r2],[p[0],r2,r1],[p[1],p[2],r2],[p[2],p[3],r1],[p[2],r1,r2],[p[3],p[0],r1]];
+ const pos=[],uv=[];for(const f of faces)for(const [px,py,pz]of f){pos.push(px-32,py,pz-40);uv.push(px/10,(pz+py*.35)/10)}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.computeVertexNormals();const m=new THREE.Mesh(g,M.roof);m.castShadow=true;m.receiveShadow=true;roof.add(m);
+ for(let i=0;i<4;i++)segment([p[i][0],p[i][2]],[p[(i+1)%4][0],p[(i+1)%4][2]],eave-.25,.28,M.fascia,roof,.2);
+ // Thin dark hip caps make the silhouette and sloping junctions legible.
+ for(const [a,b]of[[p[0],r1],[p[3],d>=w?r2:r1],[p[1],d>=w?r1:r2],[p[2],r2],[r1,r2]]){const aa=new THREE.Vector3(a[0]-32,a[1]+.06,a[2]-40),bb=new THREE.Vector3(b[0]-32,b[1]+.06,b[2]-40);const len=aa.distanceTo(bb);if(len<.01)continue;const m=new THREE.Mesh(new THREE.CylinderGeometry(.08,.08,len,5),M.fascia);m.position.copy(aa).add(bb).multiplyScalar(.5);m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),bb.sub(aa).normalize());roof.add(m)}
+}
+hip(27,42.1,52.2,68.4); // dominant tall hipped volume
+hip(39.5,14,27.3,30.3,10.95); // rear primary suite
+hip(13.5,20.8,29,25,10.96); // projecting living/dining wing
+hip(57.9,62,14.4,29.5,10.8); // lower optional garage bay
+hip(23.25,76.2,12.2,8.7,13.1); // entry portal cap
+hip(14.1,4.7,27.5,11.2,10.65,.35); // covered patio
+// Furniture is deliberately schematic and subordinate to the plan drawing.
+function piece(x,z,w,d,h,y,m){return box(x,z,w,d,h,y,m,furn)}
+function bed(x,z,rot=false){const w=rot?7:6,d=rot?6:7;piece(x,z,w,d,.8,.35,M.cabinet);piece(x,z,w-.15,d-.15,.65,1.15,M.white);piece(x,z+(rot?0:-2.6),rot?1.3:5.7,rot?5.5:1.3,.27,1.8,M.sofa);piece(x,z+(rot?0:2),w-.2,rot?d-.2:2,.12,1.81,M.sofa)}
+bed(33,7);bed(45,29);bed(46.5,43.8,true);bed(8,70);
+piece(18,20,6.5,3.1,2.2,.35,M.sofa);piece(20.5,16,2.7,2.8,2.2,.35,M.sofa);piece(19,23,4,2.3,1.1,.35,M.cabinet);piece(17,17,1,8,.08,.34,mat('#cdc7b8'));piece(5.7,20,4,7,2.5,.35,M.cabinet);for(const z of[17.4,20,22.6])for(const x of[2.7,8.7])piece(x,z,1.5,1.5,1.6,.35,M.sofa);
+piece(11.5,36,10,4,3,.35,M.cabinet);piece(11.5,36,10.3,4.3,.2,3.35,M.white);piece(11.5,36.1,2,1.3,.1,3.56,M.black);piece(3.4,37.5,2.3,10,3,.35,M.cabinet);piece(3.4,37.5,2.5,10.2,.18,3.35,M.white);for(let i=0;i<3;i++)piece(8+i*3.5,39,1.5,1.5,2,.35,M.sofa);
+piece(9,57.5,2.5,2.7,2,.35,M.sofa);piece(14,57.5,2.5,2.7,2,.35,M.sofa);piece(14,60,2,2,1.4,.35,M.cabinet);
+for(const [x,z,w,d]of[[48.8,21.9,5,2],[49.9,16.8,2,4],[4,59.3,2,3.3],[38.3,50.5,2.5,2]]){piece(x,z,w,d,2.8,.35,M.cabinet);piece(x,z,w+.1,d+.1,.16,3.15,M.white)}
+for(const [x,z,w,d]of[[48.8,12,5,4.5],[4.5,53,4.5,4.5],[37,50.6,4.5,2]])piece(x,z,w,d,.18,.35,M.white);
+for(const z of[23.2,26.5]){piece(29.2,z,2.5,2.5,3,.35,M.white);piece(29.2,z,1.7,1.7,.1,3.36,M.trim)}
+// A little planting gives the draft context without loading a single image.
+function shrub(x,z,r=1){const m=new THREE.Mesh(new THREE.IcosahedronGeometry(r,1),M.green);m.position.set(x-32,r*.7,z-40);m.scale.y=.8;m.castShadow=true;base.add(m)}
+box(9.5,77,17,3,.1,-.05,M.gravel);for(let x=2.5;x<18;x+=1.7)shrub(x,77,1+rnd()*.35);for(let z=10;z<34;z+=3.3)shrub(-1.8,z,1.15);for(let z=3;z<42;z+=4.1)shrub(54,z,1);for(const [x,z]of[[-20,-14],[88,8],[-19,54],[80,-26]]){const trunk=box(x,z,1,1,12,-.4,mat('#81725d'));const m=new THREE.Mesh(new THREE.IcosahedronGeometry(8,2),mat('#687e5b'));m.position.set(x-32,14,z-40);m.scale.y=1.25;m.castShadow=true;base.add(m)}
+// Floor view includes a scale line: geometry remains in feet even when orbiting.
+const scaleGroup=new THREE.Group();labels.add(scaleGroup);box(8.5,84,10,.12,.1,.2,M.black,scaleGroup);for(const x of[3.5,13.5])box(x,84,.12,1,.1,.2,M.black,scaleGroup);roomLabel('10 feet',8.5,86,5.5);
+let cutaway=false,cut=0,camTween=null;
+function setRotate(v){controls.autoRotate=v;const b=document.querySelector('#rotate');b.setAttribute('aria-pressed',String(v));b.textContent=v?'Pause spin':'Resume spin'}
+function moveCamera(pos,target){camTween={from:camera.position.clone(),to:new THREE.Vector3(...pos),fromTarget:controls.target.clone(),toTarget:new THREE.Vector3(...target),t:0};}
+function view(name,instant=false){setRotate(false);let pos,target=[0,6,0];const mobile=innerWidth<640,ratio=mobile?(name==='plan'?1.5:2.05):1;
+ if(name==='plan'){pos=[0,155*ratio,54*ratio];target=[0,0,0]}else if(name==='rear'){pos=[-94*ratio,72*ratio,-109*ratio]}else{pos=[72*ratio,58*ratio,134*ratio];target=[0,8,1]}
+ if(instant){camera.position.set(...pos);controls.target.set(...target);controls.update()}else moveCamera(pos,target);
+ document.querySelector('#viewname').textContent=name==='plan'?'Roof off · Approximate plan':`Exterior · ${name==='rear'?'Rear three-quarter':'Front'}`;
+ document.querySelector('#front').setAttribute('aria-pressed',String(name==='front'));document.querySelector('#rear').setAttribute('aria-pressed',String(name==='rear'));
+}
+function roofToggle(v){cutaway=v;document.querySelector('#roof').setAttribute('aria-pressed',String(v));document.querySelector('#roof').textContent=v?'Replace roof':'Lift roof / Floor plan';view(v?'plan':'front');}
+document.querySelector('#front').onclick=()=>{cutaway=false;roofToggle(false)};document.querySelector('#rear').onclick=()=>{cutaway=false;document.querySelector('#roof').setAttribute('aria-pressed','false');document.querySelector('#roof').textContent='Lift roof / Floor plan';view('rear')};document.querySelector('#roof').onclick=()=>roofToggle(!cutaway);document.querySelector('#rotate').onclick=()=>setRotate(!controls.autoRotate);
+const clock=new THREE.Clock();function frame(){requestAnimationFrame(frame);const dt=Math.min(clock.getDelta(),.5);cut=THREE.MathUtils.damp(cut,cutaway?1:0,7,dt);roof.position.y=cut*22;roof.scale.setScalar(1-cut*.06);roof.visible=cut<.97;upper.visible=cut<.94;labels.visible=cut>.8; // keep low walls and furniture as a dollhouse
+ if(camTween){camTween.t=Math.min(1,camTween.t+dt*1.15);const t=camTween.t*camTween.t*tFix(camTween.t);camera.position.lerpVectors(camTween.from,camTween.to,t);controls.target.lerpVectors(camTween.fromTarget,camTween.toTarget,t);if(camTween.t===1)camTween=null}controls.update(dt);renderer.render(scene,camera)}
+function tFix(t){return 3-2*t} // smoothstep helper
+// Capture hooks are read-only camera/cutaway controls for deterministic local QA.
+window.retreatViewer={view(name){cutaway=name==='plan';document.querySelector('#roof').setAttribute('aria-pressed',String(cutaway));document.querySelector('#roof').textContent=cutaway?'Replace roof':'Lift roof / Floor plan';view(name,true);camTween=null;},get state(){return {cutaway,autoRotate:controls.autoRotate,transitionComplete:Math.abs(cut-(cutaway?1:0))<.005 && !camTween,roofVisible:roof.visible,drawCalls:renderer.info.render.calls}}};
+view('front',true);setRotate(!matchMedia('(prefers-reduced-motion: reduce)').matches);frame();load.classList.add('hidden');window.retreatReady=true;
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+</script><script>setTimeout(()=>{if(!window.retreatReady){document.querySelector('#loading').innerHTML='<div><p>The 3D viewer could not load.</p><small>This page needs internet access to load Three.js from jsDelivr,<br>and a browser with WebGL enabled. Please reload to try again.</small></div>'}},18000);</script></body></html>
